@@ -2,7 +2,8 @@
 
 Behold the Labeler!
 
-To install: bundle install
+To install: bundle install && rake db:migrate
+
 To run: rails s
 
 To access: http://localhost:3000/projects/. (The default landing page hasn't been updated...)
