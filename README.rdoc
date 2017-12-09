@@ -2,7 +2,10 @@
 
 Behold the Labeler!
 
-Typically you'd access the main interface at: http://localhost:3000/projects/.
+To install: bundle install
+To run: rails s
+
+To access: http://localhost:3000/projects/. (The default landing page hasn't been updated...)
 
 Place data (typically text files) that you plan to label in public/data/.
 
