@@ -1,0 +1,60 @@
+<p id="notice"><%= notice %></p>
+
+<ol class="breadcrumb">
+  <li><%= link_to "All", projects_path %></li>
+  <li class="active"><%= @project.name %> (<a data-toggle="collapse" href="#schemaCollapse" aria-expanded="false" aria-controls="schemaCollapse">show schema</a>, <%= link_to "edit", edit_project_path(@project)  %>)</li>
+</ol>
+
+<p>
+  <%= @project.description %>
+</p>
+
+<p>
+  <%= @project.settings %>
+</p>
+
+<div class="collapse" id="schemaCollapse">
+<p>
+  <pre><%= @project.pretty_schema %></pre>
+</p>
+</div>
+
+<table class="table">
+  <thead>
+    <tr>
+      <th>Identifier</th>
+      <!-- <th>Data</th> -->
+      <% fields = @project.fields %>
+      <% fields.each do |k, v| %>
+        <th><%= v["name"] %></th>
+      <% end %>
+      <th></th>
+    </tr>
+  </thead>
+
+  <tbody>
+    <% @project.rows.each do |row| %>
+      <tr>
+        <td><%= link_to row.identifier, row %></td>
+        <!-- <td><%= row.data %></td> -->
+        <% dh = row.data_hash %>
+        <% fields.each do |k, v| %>
+          <td><%= v["options"][dh[k]] %></td>
+        <% end %>
+        <td><%= link_to 'Edit', edit_row_path(row) %>, <%= link_to 'Delete', row, method: :delete, data: { confirm: 'Are you sure?' } %></td>
+      </tr>
+    <% end %>
+  </tbody>
+</table>
+
+<hr>
+
+<h4>Import from Directory?</h4>
+
+<%= form_tag(import_project_path(@project)) do %>
+
+  <%= text_field_tag(:src) %>
+
+  <%= submit_tag("Import From Directory") %>
+
+<% end %>

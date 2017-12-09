@@ -1,0 +1,270 @@
+<p id="notice"><%= notice %></p>
+
+<ol class="breadcrumb">
+  <li><%= link_to "All", projects_path %></li>
+  <li><%= link_to @row.project.name, @row.project %></li>
+  <li class="active"><%= @row.identifier %></li>
+</ol>
+
+<div class="row">
+  <div class="col-md-7">
+    <pre><%= @row.text.encode!('UTF-8', 'UTF-8', :invalid => :replace) %></pre>
+  </div>
+  <div class="col-md-5">
+    <div class="panel panel-default">
+      <div class="panel-body">
+        <form class="form-inline" id="questionomatic">
+          <div class="input-group" style="width: 100%">
+            <div class="input-group-addon" style="width: 10%;">Is it</div>
+            <input id="question_text" type="text" class="form-control" placeholder="red or blue" autocomplete="off">
+            <div class="input-group-addon" style="width: 10%;">?</div>
+          </div>
+          <!-- <div class="form-group">
+            <button id="question_makeitso" class="btn btn-primary">Add Question</button>
+          </div> -->
+        </form>
+        <div id="question_result" style="margin-top: 6px; text-align: center; font-size: larger;">Type something above?</div>
+      </div>
+    </div>
+
+    <form class="form" id="form_for_schema">
+      <ul id="form_for_schema_sortable" style="list-style: none; padding: 0;">
+
+      </ul>
+    </form>
+
+    <%= form_for(@row.project, remote: true) do |f| %>
+      <%= f.hidden_field :schema, cols: 60, rows: 3 %>
+    <% end %>
+    <%= form_for(@row, remote: true) do |f| %>
+      <%= f.hidden_field :data, cols: 60, rows: 3 %>
+    <% end %>
+
+    <%= link_to 'Edit (Debug)', edit_row_path(@row) %>
+  </div>
+</div>
+
+<div class="modal fade" id="labelChanger" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+        <h4 class="modal-title" id="labelChangerLabel">Change Name</h4>
+      </div>
+      <div class="modal-body">
+        <form>
+          <input type="hidden" value="" id="labelChangerIdentifier" />
+          <input class="form-control" type="text" id="labelChangerName" />
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-default" data-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-primary" id="labelChangerConfirm">Change</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="optionChanger" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+        <h4 class="modal-title" id="optionChangerLabel">Change Options</h4>
+      </div>
+      <div class="modal-body">
+        <form>
+          <input type="hidden" value="" id="optionChangerIdentifier" />
+          <div id="optionChangerOptions"></div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-default" data-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-primary" id="optionChangerConfirm">Change</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+
+var trimmed_parts = [];
+var fields = [];
+
+var schema = { "fields": {}, "order": [] };
+var data = {};
+
+function create_multiple_choice(identifier, name, options) {
+  var html = "<li data-identifier=\"" + identifier + "\">";
+  html += "<div class=\"panel panel-default\"><div class=\"panel-heading\">";
+  html += "<a href=\"#\" id=\"label_" + identifier + "\" title=\"" + identifier + "\">" + name + "</a>";
+  html += "<div class=\"btn-group btn-group-xs pull-right\" style=\"line-height: 1.5;\"><button type=\"button\" class=\"btn btn-default\" id=\"options_" + identifier + "\">edit options</button></div>";
+  html += "</div>";
+  html += "<div class=\"panel-body\">"
+  html += "<div id=\"buttons_" + identifier + "\" class=\"btn-group\" data-toggle=\"buttons\">\n";
+  for (var k in options) {
+    html += "<label class=\"btn btn-default\"><input type=\"radio\" autocomplete=\"off\" name=\"" + identifier + "\" value=\"" + k + "\"> <span>" + options[k] + "</span></label>";
+  }
+  html += "<div id=\"clear_" + identifier + "\" class=\"pull-left\" style=\"padding: 6px 12px; border: 1px solid #ccc; margin-left: -1px; border-radius: 0px 4px 4px 0px; cursor: pointer; font-weight: bold;\">&times;</div></div>";
+  html += "</div></div>";
+  html += "</li>";
+  $("#form_for_schema_sortable").append(html);
+  $("#label_" + identifier).click(function() {
+    $("#labelChangerIdentifier").val(identifier);
+    $("#labelChangerName").val(name);
+    $('#labelChanger').modal();
+  });
+  $("#options_" + identifier).click(function() {
+    $("#optionChangerIdentifier").val(identifier);
+    $("#optionChangerOptions").html("");
+    for (var k in options) {
+      $("#optionChangerOptions").append("<input type=\"text\" class=\"form-control\" data-key=\"" + k + "\" value=\"" + options[k] + "\"><br>");
+    }
+    $("#optionChanger").modal();
+  })
+  $("#clear_" + identifier).click(function() {
+    delete data[identifier];
+    $("#form_for_schema input[name=" + identifier + "]").prop("checked", false);
+    $("#buttons_" + identifier + " label").removeClass("active");
+    update_data();
+  });
+  fields.push(identifier);
+}
+
+function update_schema(identifier, name, options) {
+  schema.fields[identifier] = { "name": name, "options": options }
+  schema.order.push(identifier);
+  $("#project_schema").val(JSON.stringify(schema));
+  $("#project_schema").parent().submit();
+}
+
+function update_data() {
+  for (var i = 0; i < fields.length; i++) {
+    var fval = $("#form_for_schema input[name=" + fields[i] + "]:checked").val();
+    data[fields[i]] = fval;
+  }
+  $("#row_data").val(JSON.stringify(data));
+  $("#row_data").parent().submit();
+}
+
+$(document).ready(function() {
+
+  $("#form_for_schema_sortable").sortable({
+    axis: "y",
+    start: function( event, ui ) {
+      ui.item.css({
+        "background-color": "#fcfcfc",
+        "margin-left": "",
+        "padding-left": "10px",
+        "border-left": "10px solid #ccc"
+      });
+    },
+    stop: function( event, ui ) {
+      ui.item.css({
+        "background-color": "",
+        "margin-left": "",
+        "padding-right": "",
+        "padding-left": "",
+        "border-left": ""
+      });
+    },
+    update: function( event, ui ) {
+      var order = $("#form_for_schema_sortable li").map(function() {
+        return $(this).data("identifier");
+      }).get();
+      schema.order = order;
+      $("#project_schema").val(JSON.stringify(schema));
+      $("#project_schema").parent().submit();
+    }
+  });
+
+  $("#labelChangerConfirm").click(function() {
+    var identifier = $("#labelChangerIdentifier").val();
+    var name = $("#labelChangerName").val();
+    $("#label_" + identifier).html(name);
+    schema.fields[identifier].name = name;
+    $("#project_schema").val(JSON.stringify(schema));
+    $("#project_schema").parent().submit();
+    $("#labelChanger").modal('hide');
+  });
+
+  $("#optionChangerConfirm").click(function() {
+    var identifier = $("#optionChangerIdentifier").val();
+    $("#optionChangerOptions input[type=text]").each(function() {
+      var k = $(this).data("key");
+      var v = $(this).val();
+      schema.fields[identifier].options[k] = v;
+      $("#buttons_" + identifier + " input[type=radio][value=" + k + "]").next().html(v);
+    });
+    $("#project_schema").val(JSON.stringify(schema));
+    $("#project_schema").parent().submit();
+    $("#optionChanger").modal('hide');
+  });
+
+  // Create fields from schema
+  if ($("#project_schema").val().length > 0) {
+    schema = JSON.parse($("#project_schema").val());
+  }
+  for (var i = 0; i < schema.order.length; i++) {
+    var identifier = schema.order[i];
+    var name = schema.fields[identifier].name;
+    var options = schema.fields[identifier].options;
+    create_multiple_choice(identifier, name, options);
+  }
+
+  // Populate fields
+  if ($("#row_data").val().length > 0) {
+    data = JSON.parse($("#row_data").val());
+  }
+  for (var k in data) {
+    $("#form_for_schema input[name=" + k + "][value=\"" + data[k] + "\"]").prop("checked", true).parent().addClass("active");
+  }
+
+  // Question-o-matic
+
+  $("#question_text").keyup(function() {
+    var text = $("#question_text").val().trim();
+    var re = /(is[\s]+it[\s]+|does[\s]+it[\s]+have)?([\w\s-]+)[\?]*/i;
+    if ((m = re.exec(text)) != null) {
+      var html = "Is it...";
+      var parts = m[2].split(/[\s]+or[\s]+/);
+      trimmed_parts = [];
+      if (parts.length == 1) {
+        parts.push("not " + parts[0]);
+      }
+      for (var i = 0; i < parts.length; i++) {
+        if (i > 0) { html += " or "; }
+        html += "<span style=\"background-color: #efefef; padding: 4px; border-radius: 4px; margin: 4px;\">" + parts[i].trim() + "</span>";
+        trimmed_parts.push(parts[i].trim());
+      }
+      html += "?";
+      $("#question_result").html(html);
+    } else {
+      $("#question_result").html("Keep typing!");
+    }
+  });
+  $("#questionomatic").submit(function() {
+    if (trimmed_parts.length > 0) {
+      var identifierCode = 97;
+      while (String.fromCharCode(identifierCode) in schema.fields) {
+        identifierCode++;
+      }
+      var identifier = String.fromCharCode(identifierCode);
+      var options = {};
+      var chari = 97;
+      for (var i = 0; i < trimmed_parts.length; i++) {
+        options[String.fromCharCode(chari++)] = trimmed_parts[i];
+      }    
+      create_multiple_choice(identifier, "Untitled", options);
+      update_schema(identifier, "Untitled", options);
+      trimmed_parts = [];
+      $("#question_text").val("");
+      $("#question_result").html("Type something in?");
+    }
+    return false;
+  });
+  $("#form_for_schema").delegate("input", "change", function() {
+    update_data();
+  });
+});
+</script>

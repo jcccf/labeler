@@ -1,3 +1,6 @@
+/public/data
+*.DS_Store
+
 *.rbc
 capybara-*.html
 .rspec
